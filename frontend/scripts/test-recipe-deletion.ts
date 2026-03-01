@@ -24,7 +24,7 @@ async function testRecipeDeletion() {
                 .where(eq(recipes.id, recipeToDelete.id));
 
             console.log(`\nDeletion result:`, {
-                rowsAffected: result.rowsAffected,
+                rowsAffected: result.length,
                 message: `Recipe ${recipeToDelete.id} deleted successfully`
             });
 

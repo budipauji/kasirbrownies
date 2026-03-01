@@ -9,7 +9,7 @@ async function testProductStockUpdate() {
         // Get all products
         console.log("📦 Fetching all products...");
         const productsRes = await fetch(`${API_BASE}/api/products`);
-        const products = await productsRes.json();
+        const products = await productsRes.json() as Array<{ id: string; name: string; stock: number; updatedAt: string }>;
         
         if (!Array.isArray(products) || products.length === 0) {
             console.log("❌ No products found");
@@ -39,7 +39,7 @@ async function testProductStockUpdate() {
             return;
         }
 
-        const updated = await updateRes.json();
+        const updated = await updateRes.json() as { name: string; stock: number; updatedAt: string };
         console.log(`✅ Update successful!\n`);
         console.log(`   Product: ${updated.name}`);
         console.log(`   New Stock: ${updated.stock}`);

@@ -20,7 +20,7 @@ export async function DELETE(
             .delete(recipes)
             .where(eq(recipes.id, recipeId));
 
-        if (result.rowsAffected === 0) {
+        if (!result || result.length === 0) {
             return NextResponse.json({ error: "Resep tidak ditemukan" }, { status: 404 });
         }
 
