@@ -33,7 +33,7 @@ interface Product {
     id: number;
     name: string;
     price: number;
-    recipes: { rawMaterial: { name: string; unit: string }; quantity: number }[];
+    recipes: { id: number; rawMaterial: { name: string; unit: string }; quantity: number }[];
 }
 
 export default function InventoryPage() {
@@ -43,6 +43,7 @@ export default function InventoryPage() {
     const [isLoadingProducts, setIsLoadingProducts] = useState(true);
     const [deletingMaterialId, setDeletingMaterialId] = useState<number | null>(null);
     const [deletingProductId, setDeletingProductId] = useState<number | null>(null);
+    const [deletingRecipeId, setDeletingRecipeId] = useState<number | null>(null);
 
     // Add Material form state
     const [isAddMaterialOpen, setIsAddMaterialOpen] = useState(false);
@@ -182,6 +183,23 @@ export default function InventoryPage() {
             toast.error(e instanceof Error ? e.message : "Terjadi kesalahan");
         } finally {
             setDeletingProductId(null);
+        }
+    };
+
+    // ── DELETE RECIPE ────────────────────────────────────────────────────────
+    const handleDeleteRecipe = async (recipeId: number, materialName: string, productName: string) => {
+        if (!confirm(`Hapus resep "${materialName}" dari produk "${productName}"?`)) return;
+        setDeletingRecipeId(recipeId);
+        try {
+            const res = await fetch(`/api/recipes/${recipeId}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Gagal menghapus resep");
+            toast.success("Resep berhasil dihapus!");
+            fetchProducts();
+        } catch (e: unknown) {
+            toast.error(e instanceof Error ? e.message : "Terjadi kesalahan");
+        } finally {
+            setDeletingRecipeId(null);
         }
     };
 
@@ -476,11 +494,26 @@ export default function InventoryPage() {
                                                 {product.recipes.length === 0 ? (
                                                     <p className="text-xs text-muted-foreground italic">Tidak ada resep</p>
                                                 ) : (
-                                                    <ul className="space-y-1">
+                                                    <ul className="space-y-2">
                                                         {product.recipes.map((r, i) => (
-                                                            <li key={i} className="flex justify-between text-sm">
-                                                                <span className="text-muted-foreground">{r.rawMaterial.name}</span>
-                                                                <span className="font-mono font-medium">{r.quantity} {r.rawMaterial.unit}</span>
+                                                            <li key={i} className="flex justify-between items-center text-sm bg-secondary/30 p-2 rounded">
+                                                                <div className="flex-1">
+                                                                    <span className="text-muted-foreground">{r.rawMaterial.name}</span>
+                                                                    <span className="ml-2 font-mono font-medium">{r.quantity} {r.rawMaterial.unit}</span>
+                                                                </div>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="text-destructive hover:bg-destructive/10 h-6 w-6 p-0 ml-2 shrink-0"
+                                                                    onClick={() => handleDeleteRecipe(r.id, r.rawMaterial.name, product.name)}
+                                                                    disabled={deletingRecipeId === r.id}
+                                                                    title="Hapus resep ini"
+                                                                >
+                                                                    {deletingRecipeId === r.id
+                                                                        ? <Loader2 className="h-3 w-3 animate-spin" />
+                                                                        : <Trash2 className="h-3 w-3" />
+                                                                    }
+                                                                </Button>
                                                             </li>
                                                         ))}
                                                     </ul>

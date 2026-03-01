@@ -47,12 +47,33 @@ export async function POST(req: Request) {
             let total = 0;
             let totalCogs = 0;
 
+            // Validate raw materials availability based on recipes (BOM)
             for (const item of data.items) {
                 const product = existingProducts.find((p) => p.id === item.productId);
                 if (!product) throw new Error(`Produk ID ${item.productId} tidak ditemukan`);
-                if (product.stock < item.quantity) {
-                    throw new Error(`Stok produk "${product.name}" tidak mencukupi`);
+                
+                // Check if recipes exist and raw materials are sufficient
+                const productRecipes = await tx
+                    .select()
+                    .from(recipes)
+                    .where(eq(recipes.productId, item.productId));
+
+                for (const recipe of productRecipes) {
+                    const [material] = await tx
+                        .select()
+                        .from(rawMaterials)
+                        .where(eq(rawMaterials.id, recipe.materialId));
+
+                    if (material) {
+                        const qtyNeeded = recipe.quantity * item.quantity;
+                        if (material.stock < qtyNeeded) {
+                            throw new Error(
+                                `Bahan baku "${material.name}" tidak cukup. Butuh ${qtyNeeded} ${material.unit}, stok: ${material.stock} ${material.unit}`
+                            );
+                        }
+                    }
                 }
+
                 total += item.priceAtSale * item.quantity;
             }
 
@@ -77,16 +98,7 @@ export async function POST(req: Request) {
             }));
             await tx.insert(saleItems).values(itemsToInsert);
 
-            // 4. Deduct product stock
-            for (const item of data.items) {
-                const product = existingProducts.find((p) => p.id === item.productId)!;
-                await tx
-                    .update(products)
-                    .set({ stock: product.stock - item.quantity, updatedAt: new Date() })
-                    .where(eq(products.id, item.productId));
-            }
-
-            // 5. Deduct raw material stock based on recipes (BOM engine)
+            // 4. Deduct raw material stock based on recipes (BOM engine)
             for (const item of data.items) {
                 const productRecipes = await tx
                     .select()
@@ -114,7 +126,7 @@ export async function POST(req: Request) {
                 }
             }
 
-            // 6. Double-entry accounting journals
+            // 5. Double-entry accounting journals
             const journalEntries: (typeof journals.$inferInsert)[] = [
                 {
                     saleId: newSale.id,

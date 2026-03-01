@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { products, recipes, saleItems } from "@/db/schema";
+import { products, saleItems } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
 // DELETE /api/products/[id] — soft delete a product
