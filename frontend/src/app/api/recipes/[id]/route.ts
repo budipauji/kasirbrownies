@@ -6,10 +6,11 @@ import { eq } from "drizzle-orm";
 // DELETE /api/recipes/[id] — delete a recipe item
 export async function DELETE(
     request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
+    const { id } = await params;
     try {
-        const recipeId = parseInt(params.id);
+        const recipeId = parseInt(id);
         if (isNaN(recipeId)) {
             return NextResponse.json({ error: "ID tidak valid" }, { status: 400 });
         }
