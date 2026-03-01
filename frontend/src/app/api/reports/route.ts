@@ -87,7 +87,7 @@ export async function GET() {
             })
             .from(sales)
             .where(
-                sql`${sales.createdAt} >= ${thirtyDaysAgo} AND ${sales.status} != 'cancelled'`
+                sql`${sales.createdAt} >= ${thirtyDaysAgo.toISOString()} AND ${sales.status} != 'cancelled'`
             )
             .groupBy(sql`date_trunc('day', ${sales.createdAt})`)
             .orderBy(sql`date_trunc('day', ${sales.createdAt})`);
