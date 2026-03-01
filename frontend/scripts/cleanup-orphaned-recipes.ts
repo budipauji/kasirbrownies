@@ -1,5 +1,5 @@
-import { db } from "../src/db/index.ts";
-import { recipes, products } from "../src/db/schema.ts";
+import { db } from "../src/db/index";
+import { recipes, products } from "../src/db/schema";
 import { eq } from "drizzle-orm";
 
 async function cleanupOrphanedRecipes() {
