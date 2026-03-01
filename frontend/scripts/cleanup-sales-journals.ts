@@ -1,5 +1,5 @@
-import { db } from "../src/db/index.ts";
-import { sales, saleItems, journals } from "../src/db/schema.ts";
+import { db } from "../src/db/index";
+import { sales, saleItems, journals } from "../src/db/schema";
 
 async function cleanupSalesAndJournals() {
     try {
