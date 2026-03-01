@@ -12,6 +12,12 @@ const withPWA = withPWAInit({
 });
 
 const nextConfig: NextConfig = {
+  // add an empty turbopack config so the build does not error when turbopack is
+  // enabled by default in Next 16. This silences the "webpack config with no
+  // turbopack config" error and allows Vercel to build successfully. If you
+  // later migrate any custom webpack settings to turbopack, update this section.
+  turbopack: {},
+
   async headers() {
     return [
       {
