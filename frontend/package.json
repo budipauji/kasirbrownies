@@ -4,8 +4,6 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    // explicitly tell Next to use webpack during build so turbopack warning is
-    // avoided if any custom webpack config remains in use
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint"
