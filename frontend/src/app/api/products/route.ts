@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { products, recipes, rawMaterials } from "@/db/schema";
+import { products, recipes, rawMaterials, saleItems } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { createProductSchema, parseAndValidate } from "@/lib/validations";
 
@@ -20,6 +20,14 @@ export async function GET() {
 
         const materialMap = new Map(allMaterials.map((m) => [m.id, m]));
 
+        // compute sales count per product
+        const allSaleItems = await db.select().from(saleItems);
+        const countMap = new Map<number, number>();
+        
+        for (const item of allSaleItems) {
+            countMap.set(item.productId, (countMap.get(item.productId) || 0) + 1);
+        }
+
         const productsWithRecipes = allProducts.map((product) => {
             const productRecipes = allRecipes
                 .filter((r) => r.productId === product.id)
@@ -37,7 +45,7 @@ export async function GET() {
                         updatedAt: new Date(),
                     },
                 }));
-            return { ...product, recipes: productRecipes };
+            return { ...product, recipes: productRecipes, salesCount: countMap.get(product.id) || 0 };
         });
 
         return NextResponse.json(productsWithRecipes);

@@ -34,6 +34,7 @@ interface Product {
     name: string;
     price: number;
     recipes: { id: number; rawMaterial: { name: string; unit: string }; quantity: number }[];
+    salesCount?: number;
 }
 
 export default function InventoryPage() {
@@ -76,7 +77,9 @@ export default function InventoryPage() {
         try {
             const res = await fetch('/api/products');
             if (!res.ok) throw new Error("Failed");
-            setProducts(await res.json());
+            const data = await res.json();
+            console.log('Fetched products:', data);
+            setProducts(data);
         } catch {
             toast.error("Gagal memuat data produk.");
         } finally {
@@ -526,6 +529,7 @@ export default function InventoryPage() {
                                                     className="w-full gap-1"
                                                     onClick={() => handleDeleteProduct(product.id, product.name)}
                                                     disabled={deletingProductId === product.id}
+                                                    title={undefined}
                                                 >
                                                     {deletingProductId === product.id
                                                         ? <Loader2 className="h-3 w-3 animate-spin" />

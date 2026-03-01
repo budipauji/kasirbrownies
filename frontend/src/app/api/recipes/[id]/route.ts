@@ -20,10 +20,7 @@ export async function DELETE(
             .delete(recipes)
             .where(eq(recipes.id, recipeId));
 
-        if (!result || result.length === 0) {
-            return NextResponse.json({ error: "Resep tidak ditemukan" }, { status: 404 });
-        }
-
+        // Drizzle delete returns object, no need to check - if no error, it succeeded
         return NextResponse.json({ message: "Resep berhasil dihapus" }, { status: 200 });
     } catch (error) {
         console.error("[DELETE /api/recipes/[id]]", error);

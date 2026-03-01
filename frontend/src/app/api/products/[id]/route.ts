@@ -16,22 +16,8 @@ export async function DELETE(
     }
 
     try {
-        // Cannot soft-delete a product that has sales history
-        const usedInSales = await db
-            .select()
-            .from(saleItems)
-            .where(eq(saleItems.productId, productId));
-
-        if (usedInSales.length > 0) {
-            return NextResponse.json(
-                {
-                    error: `Produk ini sudah memiliki ${usedInSales.length} riwayat penjualan dan tidak dapat dihapus.`,
-                },
-                { status: 409 }
-            );
-        }
-
-        // Soft delete
+        // For made-to-order bakery: allow soft-delete even with sales history
+        // Sales are immutable historical records
         await db
             .update(products)
             .set({ isDeleted: true, deletedAt: new Date() })
