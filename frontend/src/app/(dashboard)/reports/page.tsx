@@ -9,8 +9,10 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { TrendingUp, BookOpen, Loader2, Ban } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { TrendingUp, BookOpen, Loader2, Ban, Download } from "lucide-react"
 import { toast } from "sonner"
+import * as XLSX from "xlsx"
 
 interface DashboardData {
     totalSales: number;
@@ -47,6 +49,10 @@ export default function ReportsPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [cancellingId, setCancellingId] = useState<number | null>(null);
 
+    // Filter state
+    const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
+    const [selectedMonth, setSelectedMonth] = useState<string>(String(new Date().getMonth() + 1).padStart(2, "0"));
+
     // Cancel dialog state
     const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
     const [cancelTargetId, setCancelTargetId] = useState<number | null>(null);
@@ -55,6 +61,83 @@ export default function ReportsPage() {
 
     const formatRp = (value: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(value);
     const formatDate = (dateStr: string) => new Date(dateStr).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
+
+    // Filter data by selected month/year
+    const filterByMonth = (data: any[], dateField: string) => {
+        return data.filter(item => {
+            const date = new Date(item[dateField]);
+            return date.getFullYear().toString() === selectedYear && 
+                   String(date.getMonth() + 1).padStart(2, "0") === selectedMonth;
+        });
+    };
+
+    const filteredSales = filterByMonth(recentSales, 'createdAt');
+    const filteredJournals = filterByMonth(journals, 'createdAt');
+
+    // Export to Excel
+    const exportSalesToExcel = () => {
+        if (filteredSales.length === 0) {
+            toast.error("Tidak ada data penjualan untuk bulan ini");
+            return;
+        }
+
+        const data = filteredSales.map(sale => ({
+            'ID Transaksi': `#${sale.id}`,
+            'Tanggal': new Date(sale.createdAt).toLocaleDateString('id-ID'),
+            'Waktu': new Date(sale.createdAt).toLocaleTimeString('id-ID'),
+            'Total (Rp)': sale.total,
+            'Status': sale.status === 'cancelled' ? 'Dibatalkan' : 'Selesai',
+            'Catatan': sale.note || '-',
+            'Alasan Pembatalan': sale.cancelReason || '-',
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Penjualan");
+        
+        // Format header
+        const headerStyle = { font: { bold: true }, fill: { fgColor: { rgb: "4472C4" } }, alignment: { horizontal: "center" } };
+        Object.keys(data[0] || {}).forEach((key, index) => {
+            const cellRef = XLSX.utils.encode_col(index) + "1";
+            ws[cellRef].s = headerStyle;
+        });
+
+        const monthName = new Date(2024, parseInt(selectedMonth) - 1).toLocaleString('id-ID', { month: 'long' });
+        XLSX.writeFile(wb, `Riwayat_Penjualan_${monthName}_${selectedYear}.xlsx`);
+        toast.success("File Excel berhasil diunduh!");
+    };
+
+    const exportJournalsToExcel = () => {
+        if (filteredJournals.length === 0) {
+            toast.error("Tidak ada jurnal untuk bulan ini");
+            return;
+        }
+
+        const data = filteredJournals.map(entry => ({
+            'Tanggal': new Date(entry.createdAt).toLocaleDateString('id-ID'),
+            'Akun': entry.account,
+            'Tipe': entry.type === 'debit' ? 'Debit' : 'Kredit',
+            'Jumlah (Rp)': entry.amount,
+            'Referensi': entry.saleId ? `#${entry.saleId}` : '-',
+            'Keterangan': entry.description || '-',
+            'Status': entry.isReversed ? 'Reversed' : 'Aktif',
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Jurnal");
+
+        // Format header
+        const headerStyle = { font: { bold: true }, fill: { fgColor: { rgb: "70AD47" } }, alignment: { horizontal: "center" } };
+        Object.keys(data[0] || {}).forEach((key, index) => {
+            const cellRef = XLSX.utils.encode_col(index) + "1";
+            ws[cellRef].s = headerStyle;
+        });
+
+        const monthName = new Date(2024, parseInt(selectedMonth) - 1).toLocaleString('id-ID', { month: 'long' });
+        XLSX.writeFile(wb, `Jurnal_Umum_${monthName}_${selectedYear}.xlsx`);
+        toast.success("File Excel berhasil diunduh!");
+    };
 
     const fetchReports = async () => {
         setIsLoading(true);
@@ -122,10 +205,6 @@ export default function ReportsPage() {
             </div>
         );
     }
-
-    const activeJournals = journals.filter(j => !j.isReversed);
-    const totalDebits = activeJournals.filter(j => j.type === "debit").reduce((sum, j) => sum + j.amount, 0);
-    const totalCredits = activeJournals.filter(j => j.type === "credit").reduce((sum, j) => sum + j.amount, 0);
 
     return (
         <div className="flex flex-col gap-6">
@@ -206,12 +285,48 @@ export default function ReportsPage() {
                 {/* ==================== RIWAYAT PENJUALAN ==================== */}
                 <TabsContent value="sales">
                     <Card>
-                        <CardHeader>
-                            <CardTitle>Riwayat Penjualan</CardTitle>
-                            <CardDescription>
-                                Klik tombol <Ban className="inline h-3 w-3 text-destructive" /> untuk membatalkan transaksi.
-                                Stok bahan baku akan otomatis dikembalikan. Data tidak dihapus.
-                            </CardDescription>
+                        <CardHeader className="flex flex-row items-center justify-between">
+                            <div>
+                                <CardTitle>Riwayat Penjualan</CardTitle>
+                                <CardDescription>
+                                    Klik tombol <Ban className="inline h-3 w-3 text-destructive" /> untuk membatalkan transaksi.
+                                    Stok bahan baku akan otomatis dikembalikan. Data tidak dihapus.
+                                </CardDescription>
+                            </div>
+                            <div className="flex items-end gap-3">
+                                <div>
+                                    <Label htmlFor="sales-month" className="text-xs mb-1 block">Bulan</Label>
+                                    <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                                        <SelectTrigger className="w-[100px]" id="sales-month">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {Array.from({ length: 12 }, (_, i) => {
+                                                const month = String(i + 1).padStart(2, "0");
+                                                const monthName = new Date(2024, i).toLocaleString('id-ID', { month: 'long' });
+                                                return <SelectItem key={month} value={month}>{monthName}</SelectItem>;
+                                            })}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div>
+                                    <Label htmlFor="sales-year" className="text-xs mb-1 block">Tahun</Label>
+                                    <Select value={selectedYear} onValueChange={setSelectedYear}>
+                                        <SelectTrigger className="w-[100px]" id="sales-year">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {Array.from({ length: 5 }, (_, i) => {
+                                                const year = (new Date().getFullYear() - i).toString();
+                                                return <SelectItem key={year} value={year}>{year}</SelectItem>;
+                                            })}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <Button onClick={exportSalesToExcel} size="sm" className="gap-2">
+                                    <Download className="h-4 w-4" /> Export Excel
+                                </Button>
+                            </div>
                         </CardHeader>
                         <CardContent>
                             <Table>
@@ -225,13 +340,13 @@ export default function ReportsPage() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {recentSales.length === 0 ? (
+                                    {filteredSales.length === 0 ? (
                                         <TableRow>
                                             <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
-                                                Belum ada data penjualan.
+                                                Belum ada data penjualan untuk bulan ini.
                                             </TableCell>
                                         </TableRow>
-                                    ) : recentSales.map((sale) => (
+                                    ) : filteredSales.map((sale) => (
                                         <TableRow key={sale.id} className={sale.status === "cancelled" ? "opacity-60" : ""}>
                                             <TableCell className="font-mono text-xs">#{sale.id}</TableCell>
                                             <TableCell className="text-sm">{formatDate(sale.createdAt)}</TableCell>
@@ -276,12 +391,48 @@ export default function ReportsPage() {
                 {/* ==================== BUKU BESAR (JURNAL) ==================== */}
                 <TabsContent value="journal">
                     <Card>
-                        <CardHeader>
-                            <CardTitle>Jurnal Umum (Double-Entry)</CardTitle>
-                            <CardDescription>
-                                Pencatatan akuntansi otomatis dari setiap transaksi penjualan.
-                                Jurnal yang di-reverse ditandai saat transaksi dibatalkan.
-                            </CardDescription>
+                        <CardHeader className="flex flex-row items-center justify-between">
+                            <div>
+                                <CardTitle>Jurnal Umum (Double-Entry)</CardTitle>
+                                <CardDescription>
+                                    Pencatatan akuntansi otomatis dari setiap transaksi penjualan.
+                                    Jurnal yang di-reverse ditandai saat transaksi dibatalkan.
+                                </CardDescription>
+                            </div>
+                            <div className="flex items-end gap-3">
+                                <div>
+                                    <Label htmlFor="journal-month" className="text-xs mb-1 block">Bulan</Label>
+                                    <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                                        <SelectTrigger className="w-[100px]" id="journal-month">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {Array.from({ length: 12 }, (_, i) => {
+                                                const month = String(i + 1).padStart(2, "0");
+                                                const monthName = new Date(2024, i).toLocaleString('id-ID', { month: 'long' });
+                                                return <SelectItem key={month} value={month}>{monthName}</SelectItem>;
+                                            })}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div>
+                                    <Label htmlFor="journal-year" className="text-xs mb-1 block">Tahun</Label>
+                                    <Select value={selectedYear} onValueChange={setSelectedYear}>
+                                        <SelectTrigger className="w-[100px]" id="journal-year">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {Array.from({ length: 5 }, (_, i) => {
+                                                const year = (new Date().getFullYear() - i).toString();
+                                                return <SelectItem key={year} value={year}>{year}</SelectItem>;
+                                            })}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <Button onClick={exportJournalsToExcel} size="sm" className="gap-2">
+                                    <Download className="h-4 w-4" /> Export Excel
+                                </Button>
+                            </div>
                         </CardHeader>
                         <CardContent>
                             <Table>
@@ -296,13 +447,13 @@ export default function ReportsPage() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {journals.length === 0 ? (
+                                    {filteredJournals.length === 0 ? (
                                         <TableRow>
                                             <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
-                                                Belum ada jurnal. Lakukan penjualan untuk melihat entri jurnal.
+                                                Belum ada jurnal untuk bulan ini.
                                             </TableCell>
                                         </TableRow>
-                                    ) : journals.map((entry) => (
+                                    ) : filteredJournals.map((entry) => (
                                         <TableRow key={entry.id} className={entry.isReversed ? "opacity-50" : ""}>
                                             <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
                                                 {formatDate(entry.createdAt)}
@@ -339,10 +490,10 @@ export default function ReportsPage() {
                                 </TableBody>
                             </Table>
                         </CardContent>
-                        {journals.length > 0 && (
+                        {filteredJournals.length > 0 && (
                             <div className="border-t px-6 py-3 flex justify-end gap-8 text-sm">
-                                <span>Total Debit (aktif): <span className="font-bold text-green-700">{formatRp(totalDebits)}</span></span>
-                                <span>Total Kredit (aktif): <span className="font-bold text-red-700">{formatRp(totalCredits)}</span></span>
+                                <span>Total Debit (aktif): <span className="font-bold text-green-700">{formatRp(filteredJournals.filter(j => j.type === "debit" && !j.isReversed).reduce((sum, j) => sum + j.amount, 0))}</span></span>
+                                <span>Total Kredit (aktif): <span className="font-bold text-red-700">{formatRp(filteredJournals.filter(j => j.type === "credit" && !j.isReversed).reduce((sum, j) => sum + j.amount, 0))}</span></span>
                             </div>
                         )}
                     </Card>

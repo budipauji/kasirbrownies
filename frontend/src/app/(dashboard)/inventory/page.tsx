@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Plus, Loader2, Package, ShoppingBag, Trash2 } from "lucide-react"
+import { Plus, Loader2, Package, ShoppingBag, Trash2, Edit } from "lucide-react"
 import { toast } from "sonner"
 
 // Unit options as requested
@@ -33,7 +33,7 @@ interface Product {
     id: number;
     name: string;
     price: number;
-    recipes: { id: number; rawMaterial: { name: string; unit: string }; quantity: number }[];
+    recipes: { id: number; rawMaterial: { id: number; name: string; unit: string }; quantity: number }[];
     salesCount?: number;
 }
 
@@ -51,9 +51,11 @@ export default function InventoryPage() {
     const [newMaterial, setNewMaterial] = useState({ name: "", unit: "Kilogram", costPerUnit: "", stock: "" });
     const [isSubmittingMaterial, setIsSubmittingMaterial] = useState(false);
 
-    // Add Product form state
+    // Add/Edit Product form state
     const [isAddProductOpen, setIsAddProductOpen] = useState(false);
+    const [isEditProductOpen, setIsEditProductOpen] = useState(false);
     const [newProduct, setNewProduct] = useState({ name: "", price: "" });
+    const [editProductId, setEditProductId] = useState<number | null>(null);
     const [recipeItems, setRecipeItems] = useState<RecipeItem[]>([{ materialId: "", quantity: 0 }]);
     const [isSubmittingProduct, setIsSubmittingProduct] = useState(false);
 
@@ -172,6 +174,45 @@ export default function InventoryPage() {
         }
     };
 
+    const handleStartEditProduct = (product: Product) => {
+        setEditProductId(product.id);
+        setNewProduct({ name: product.name, price: String(product.price) });
+        setRecipeItems(
+            product.recipes.map(r => ({ materialId: String(r.rawMaterial.id), quantity: r.quantity }))
+        );
+        setIsEditProductOpen(true);
+    };
+
+    const handleSaveEditedProduct = async () => {
+        if (!newProduct.name || !newProduct.price) {
+            toast.warning("Nama produk dan harga jual wajib diisi.");
+            return;
+        }
+        const validRecipes = recipeItems.filter(r => r.materialId && r.quantity > 0);
+        setIsSubmittingProduct(true);
+        try {
+            const res = await fetch(`/api/products/${editProductId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: newProduct.name,
+                    price: parseFloat(newProduct.price) || 0,
+                    recipes: validRecipes.map(r => ({ materialId: Number(r.materialId), quantity: r.quantity })),
+                }),
+            });
+            if (!res.ok) throw new Error("Failed");
+            toast.success("Produk berhasil diupdate!");
+            setIsEditProductOpen(false);
+            setEditProductId(null);
+            setNewProduct({ name: "", price: "" });
+            setRecipeItems([{ materialId: "", quantity: 0 }]);
+            fetchProducts();
+        } catch {
+            toast.error("Gagal memperbarui produk.");
+        } finally {
+            setIsSubmittingProduct(false);
+        }
+    };
     // ── DELETE PRODUCT ────────────────────────────────────────────────────────
     const handleDeleteProduct = async (id: number, name: string) => {
         if (!confirm(`Hapus produk "${name}"?\n\nProduk yang sudah memiliki riwayat penjualan tidak bisa dihapus.`)) return;
@@ -205,6 +246,8 @@ export default function InventoryPage() {
             setDeletingRecipeId(null);
         }
     };
+
+
 
     // ── RECIPE HELPERS ────────────────────────────────────────────────────────
     const addRecipeRow = () => setRecipeItems(prev => [...prev, { materialId: "", quantity: 0 }]);
@@ -373,13 +416,26 @@ export default function InventoryPage() {
                                 <CardTitle>Produk &amp; Resep (BOM)</CardTitle>
                                 <CardDescription>Kelola daftar produk dan bill of materials</CardDescription>
                             </div>
-                            <Dialog open={isAddProductOpen} onOpenChange={setIsAddProductOpen}>
+                            <Dialog
+                                open={isAddProductOpen || isEditProductOpen}
+                                onOpenChange={(open) => {
+                                    if (open) {
+                                        setIsAddProductOpen(true);
+                                    } else {
+                                        setIsAddProductOpen(false);
+                                        setIsEditProductOpen(false);
+                                        setEditProductId(null);
+                                        setNewProduct({ name: "", price: "" });
+                                        setRecipeItems([{ materialId: "", quantity: 0 }]);
+                                    }
+                                }}
+                            >
                                 <DialogTrigger asChild>
                                     <Button size="sm"><Plus className="mr-2 h-4 w-4" /> Tambah Produk</Button>
                                 </DialogTrigger>
                                 <DialogContent className="max-w-2xl">
                                     <DialogHeader>
-                                        <DialogTitle>Tambah Produk</DialogTitle>
+                                        <DialogTitle>{isEditProductOpen ? "Edit Produk" : "Tambah Produk"}</DialogTitle>
                                         <DialogDescription>Isi nama, harga jual, dan resep bahan baku</DialogDescription>
                                     </DialogHeader>
                                     <div className="grid gap-4 py-4">
@@ -469,9 +525,9 @@ export default function InventoryPage() {
                                         </div>
                                     </div>
                                     <DialogFooter>
-                                        <Button onClick={handleAddProduct} disabled={isSubmittingProduct}>
+                                        <Button onClick={isEditProductOpen ? handleSaveEditedProduct : handleAddProduct} disabled={isSubmittingProduct}>
                                             {isSubmittingProduct && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                            Simpan Produk
+                                            {isEditProductOpen ? "Simpan Perubahan" : "Simpan Produk"}
                                         </Button>
                                     </DialogFooter>
                                 </DialogContent>
@@ -489,7 +545,17 @@ export default function InventoryPage() {
                                             <CardHeader className="pb-2">
                                                 <div className="flex items-start justify-between gap-2">
                                                     <CardTitle className="text-base flex-1">{product.name}</CardTitle>
-                                                    <Badge className="shrink-0">{formatRp(product.price)}</Badge>
+                                                    <div className="flex items-center gap-2">
+                                                        <Button
+                                                            size="icon"
+                                                            variant="ghost"
+                                                            onClick={() => handleStartEditProduct(product)}
+                                                            title="Edit produk"
+                                                        >
+                                                            <Edit className="h-4 w-4" />
+                                                        </Button>
+                                                        <Badge className="shrink-0">{formatRp(product.price)}</Badge>
+                                                    </div>
                                                 </div>
                                             </CardHeader>
                                             <CardContent>
@@ -500,23 +566,27 @@ export default function InventoryPage() {
                                                     <ul className="space-y-2">
                                                         {product.recipes.map((r, i) => (
                                                             <li key={i} className="flex justify-between items-center text-sm bg-secondary/30 p-2 rounded">
-                                                                <div className="flex-1">
-                                                                    <span className="text-muted-foreground">{r.rawMaterial.name}</span>
-                                                                    <span className="ml-2 font-mono font-medium">{r.quantity} {r.rawMaterial.unit}</span>
+                                                                <div className="flex-1 flex items-center justify-between">
+                                                                    <div>
+                                                                        <span className="text-muted-foreground">{r.rawMaterial.name}</span>
+                                                                        <span className="ml-2 font-mono font-medium">{r.quantity} {r.rawMaterial.unit}</span>
+                                                                    </div>
+                                                                    <div className="flex gap-1">
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            className="text-destructive hover:bg-destructive/10 h-6 w-6 p-0"
+                                                                            onClick={() => handleDeleteRecipe(r.id, r.rawMaterial.name, product.name)}
+                                                                            disabled={deletingRecipeId === r.id}
+                                                                            title="Hapus resep ini"
+                                                                        >
+                                                                            {deletingRecipeId === r.id
+                                                                                ? <Loader2 className="h-3 w-3 animate-spin" />
+                                                                                : <Trash2 className="h-3 w-3" />
+                                                                            }
+                                                                        </Button>
+                                                                    </div>
                                                                 </div>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    className="text-destructive hover:bg-destructive/10 h-6 w-6 p-0 ml-2 shrink-0"
-                                                                    onClick={() => handleDeleteRecipe(r.id, r.rawMaterial.name, product.name)}
-                                                                    disabled={deletingRecipeId === r.id}
-                                                                    title="Hapus resep ini"
-                                                                >
-                                                                    {deletingRecipeId === r.id
-                                                                        ? <Loader2 className="h-3 w-3 animate-spin" />
-                                                                        : <Trash2 className="h-3 w-3" />
-                                                                    }
-                                                                </Button>
                                                             </li>
                                                         ))}
                                                     </ul>

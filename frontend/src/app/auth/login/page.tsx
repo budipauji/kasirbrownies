@@ -71,7 +71,7 @@ export default function LoginPage() {
         <div className="flex items-center justify-center min-h-screen bg-slate-50/50">
             <Card className="w-full max-w-sm">
                 <CardHeader>
-                    <CardTitle className="text-2xl font-bold tracking-tight">Buku Kas Roti</CardTitle>
+                    <CardTitle className="text-2xl font-bold tracking-tight">Buku Kas Choco Fellas</CardTitle>
                     <CardDescription>
                         Masukkan email dan password Anda untuk masuk ke sistem akuntansi.
                     </CardDescription>

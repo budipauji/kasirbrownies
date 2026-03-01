@@ -14,14 +14,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Buku Kas Toko Roti",
+  title: "Buku Kas Choco Fellas",
   description: "Sistem Akuntansi Cerdas untuk Usaha Roti",
   manifest: "/manifest.json",
   themeColor: "#0f172a",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Buku Kas",
+    title: "Buku Kas Choco Fellas",
   },
   formatDetection: { telephone: false },
   viewport: {

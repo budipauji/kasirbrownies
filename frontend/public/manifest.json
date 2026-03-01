@@ -1,8 +1,7 @@
 {
-  "name": "Buku Kas Toko Roti",
-  "short_name": "Buku Kas",
-  "description": "Sistem Akuntansi Cerdas untuk Usaha Roti",
-  "start_url": "/dashboard",
+  "name": "Buku Kas Choco Fellas",
+  "short_name": "Buku Kas Choco",
+  "description": "Sistem Akuntansi Cerdas untuk Usaha Roti",  "start_url": "/dashboard",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#0f172a",

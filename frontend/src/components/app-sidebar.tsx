@@ -39,7 +39,7 @@ export function AppSidebar() {
     return (
         <Sidebar>
             <SidebarHeader className="h-16 flex items-center px-4 font-bold text-xl tracking-tight text-primary">
-                Buku Kas Roti
+                Buku Kas Choco Fellas
             </SidebarHeader>
             <SidebarContent>
                 <SidebarGroup>
