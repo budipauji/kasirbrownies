@@ -1,0 +1,38 @@
+name: Nightly DB Backup
+
+on:
+  schedule:
+    # Runs at 02:00 UTC every day (09:00 WIB)
+    - cron: "0 2 * * *"
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  backup:
+    name: pg_dump to Artifact
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y postgresql-client
+
+      - name: Run pg_dump
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PGPASSWORD: ""
+        run: |
+          pg_dump "$DATABASE_URL" \
+            --no-owner \
+            --no-acl \
+            --format=plain \
+            --encoding=UTF8 \
+            | gzip > backup-$(date +%Y%m%d-%H%M%S).sql.gz
+
+      - name: Upload backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ github.run_number }}-${{ github.run_attempt }}
+          path: "*.sql.gz"
+          retention-days: 7
+          if-no-files-found: error
